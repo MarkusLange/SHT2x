@@ -30,89 +30,149 @@ or check in the web: <http://www.gnu.org/licenses/>
 
 uint32_t timeout=0;
 
-void SHT2xClass::softReset ()
+void SHT2xClass::softReset()
 {
-     Wire.beginTransmission(SHT2xADDR);
-     Wire.write(SOFT_RESET);
-     delay(15);
+  Wire.beginTransmission(SHT2xADDR);
+  Wire.write(SOFT_RESET);
+  delay(15);
 }
 
 uint8_t SHT2xClass::readUserRegister()
 {
-     Wire.beginTransmission(SHT2xADDR);
-     Wire.write(USER_REG_R);
-     Wire.endTransmission();
-     Wire.requestFrom(SHT2xADDR,(uint8_t)2);
-     while(Wire.available()<2) {
-          ;
-     }
-     return Wire.read();
+  Wire.beginTransmission(SHT2xADDR);
+  Wire.write(USER_REG_R);
+  Wire.endTransmission();
+  Wire.requestFrom(SHT2xADDR,(uint8_t)1);
+  while(Wire.available()<1) {
+  	;
+  }
+  return Wire.read();
 }
 
 void SHT2xClass::writeUserRegister(uint8_t userRegister)
 {
-     Wire.beginTransmission(SHT2xADDR);
-     Wire.write(userRegister);
-     Wire.endTransmission();
+  Wire.beginTransmission(SHT2xADDR);
+  Wire.write(USER_REG_W);
+  Wire.write(userRegister);
+  Wire.endTransmission();
 }
 
+void SHT2xClass::setResolution(uint8_t resolution)
+{
+	uint8_t userRegister;
+  userRegister=readUserRegister();
+	writeUserRegister( (userRegister & ~SHT2x_RES_MASK) | resolution);
+}
+
+uint8_t SHT2xClass::getResolution()
+{
+	uint8_t userRegister;
+  userRegister=readUserRegister();
+	return (userRegister & SHT2x_RES_MASK);
+}
+
+void SHT2xClass::readSerial(uint8_t *serial)
+{
+	Wire.beginTransmission(SHT2xADDR);
+	Wire.write(0xFA);
+	Wire.write(0x0F);
+	Wire.endTransmission();
+	
+	Wire.requestFrom(SHT2xADDR,(uint8_t)8);
+	serial[2]=Wire.read();
+	Wire.read();
+	serial[3]=Wire.read();
+	Wire.read();
+	serial[4]=Wire.read();
+	Wire.read();
+	serial[5]=Wire.read();
+	Wire.read();
+	
+	Wire.beginTransmission(SHT2xADDR);
+	Wire.write(0xFC);
+	Wire.write(0xC9);
+	Wire.endTransmission();
+	
+	Wire.requestFrom(SHT2xADDR,(uint8_t)6);
+	serial[6]=Wire.read();
+	serial[7]=Wire.read();
+	Wire.read();
+	serial[0]=Wire.read();
+	serial[1]=Wire.read();
+	Wire.read();
+}
 
 uint16_t SHT2xClass::readMeasurement(SHT2xMeasureType type)
 {
-     uint16_t value = 0;
-     uint8_t low, high;
+  uint16_t value = 0;
+  uint8_t data[3];
 
-     Wire.beginTransmission(SHT2xADDR);
-     switch (type) {
-     case HUMIDITY:
-          Wire.write(MEASUREMENT_RH_HM);
-          break;
-     case TEMP:
-          Wire.write(MEASUREMENT_T_HM);
-          break;
-     }
-     Wire.endTransmission();
+  Wire.beginTransmission(SHT2xADDR);
+  switch (type) {
+  case HUMIDITY:
+  	Wire.write(MEASUREMENT_RH_HM);
+    break;
+  case TEMP:
+    Wire.write(MEASUREMENT_T_HM);
+    break;
+  }
+  Wire.endTransmission();
 
-     //wait for measurement to complete.
-     timeout= millis()+300;
-     while (!digitalRead(18)) {
-          if (millis()>timeout) {
-               return 0;
-          }
-     }
+  Wire.requestFrom(SHT2xADDR,(uint8_t)3);
+  while (Wire.available()<3) {
+  	;
+  }
+  data[0]=Wire.read();
+  data[1]=Wire.read();
+  data[2]=Wire.read();
+  value=(uint16_t)data[0] << 8 | data[1];
+  value &= ~0x0003;
+  if (checkcrc(data) != 0)
+  	return 0;
+  else
+  	return value;
+}
 
-     Wire.requestFrom(SHT2xADDR,(uint8_t)3);
-     timeout=millis()+300;
-     while (Wire.available()<3) {
-          if (millis()>timeout) {
-               return 0;
-          }
-     }
-     high=Wire.read();
-     low=Wire.read();
-     value=(uint16_t)high << 8 | low;
-     value &= ~0x0003;
-     return value;
+uint8_t SHT2xClass::checkcrc(uint8_t *data)
+{
+	uint8_t crc, i;
+	crc = 0;
+	
+	for (int i = 0; i < 2; i++) {
+		crc ^= data[i];
+		for (int bit = 8; bit > 0; bit--) {
+			if (crc & 0x80) {
+				crc = (crc << 1)^POLYNOMIAL;
+			} else {
+				crc = (crc << 1);
+			}
+		}
+	}
+	if (crc != data[2])
+		return 1;
+	else
+		return 0;
 }
 
 float SHT2xClass::readT()
 {
-     return -46.85+175.72/65536.00*(float)readMeasurement(TEMP);
+  return -46.85+175.72/65536.00*(float)readMeasurement(TEMP);
 }
 
 float SHT2xClass::readRH()
 {
-     return -6.0+125.0/65536.00*(float)readMeasurement(HUMIDITY);
+  return -6.0+125.0/65536.00*(float)readMeasurement(HUMIDITY);
 }
 
 void SHT2xClass::setHeater(uint8_t on)
 {
-     uint8_t userRegister;
-     userRegister=readUserRegister();
-     if (on) {
-          userRegister=(userRegister&~SHT2x_HEATER_MASK) | SHT2x_HEATER_ON;
-     } else {
-          userRegister=(userRegister&~SHT2x_HEATER_MASK) | SHT2x_HEATER_OFF;
-     }
+  uint8_t userRegister;
+  userRegister=readUserRegister();
+  
+  if (on) {
+  	userRegister=(userRegister&~SHT2x_HEATER_MASK) | SHT2x_HEATER_ON;
+  } else {
+    userRegister=(userRegister&~SHT2x_HEATER_MASK) | SHT2x_HEATER_OFF;
+  }
 }
 SHT2xClass SHT2x;

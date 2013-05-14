@@ -1,5 +1,41 @@
-SHT2x		KEYWORD1
-readRH		KEYWORD2
-readT		KEYWORD2
-softReset	KEYWORD2
-setHeater	KEYWORD2
+#######################################
+# Syntax Coloring Map For SHT2x Library
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+readRH 	KEYWORD2
+readT 	KEYWORD2
+softReset 	KEYWORD2
+setHeater 	KEYWORD2
+readSerial 	KEYWORD2
+setResolution 	KEYWORD2
+getResolution 	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+
+#######################################
+# Mean Instances (KEYWORD3)
+#######################################
+
+SHT2x 	KEYWORD3
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+SHT2x_RES_12_14BIT 	LITERAL1
+SHT2x_RES_8_12BIT 	LITERAL1
+SHT2x_RES_10_13BIT	LITERAL1
+SHT2x_RES_11_11BIT	LITERAL1
